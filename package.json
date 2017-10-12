@@ -1,0 +1,19 @@
+{
+  "name": "@glaced/lwngl",
+  "version": "0.1.0",
+  "description": "",
+  "main": "dist/index.js",
+  "dependencies": {
+    "bindings": "^1.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^7.0.27",
+    "typescript": "^2.3.4"
+  },
+  "scripts": {
+    "build": "tsc",
+  },
+  "types": "index.d.ts",
+  "author": "Sebastian Langer <sl@scn.cx>",
+  "license": "MIT"
+}
