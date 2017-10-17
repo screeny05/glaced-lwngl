@@ -1,4 +1,4 @@
-import { glfw, GLFW, GLFWWindow, GLFWCursor } from '@glaced/glfw';
+import { glfw, GLFW, GLFWWindow, GLFWCursor, GLFWPosition } from '@glaced/glfw';
 
 import * as EventEmitter from 'events';
 
@@ -9,13 +9,13 @@ export interface LoadableContext {
     bindingsVersion: string;
 }
 
-enum LoadableContextApi {
-    gles1 = glfw.OPENGL_ES_API,
-    gles2 = glfw.OPENGL_ES_API,
+export enum LoadableContextApi {
+    gles1 = glfw.OPENGL_API,
+    gles2 = glfw.OPENGL_API,
     gl = glfw.OPENGL_API,
 }
 
-enum WindowMode {
+export enum WindowMode {
     fullscreen,
     windowedFullscreen,
     window
@@ -40,13 +40,16 @@ export interface NativeWindowOptions {
     context: LoadableContext;
 }
 
+// context is always a required argument
 export interface NativeWindowOptionsArguments extends Partial<NativeWindowOptions> {
     context: LoadableContext;
 }
 
 const fakeContext: LoadableContext = <any>{ };
 
-export class NativeWindow<Context extends LoadableContext> extends EventEmitter {
+// let generic context default to any, so the user can use the type NativeWindow,
+// when context is irrelevant
+export class NativeWindow<Context extends LoadableContext = any> extends EventEmitter {
     static defaults: NativeWindowOptions = {
         width: 800,
         height: 600,
@@ -91,7 +94,7 @@ export class NativeWindow<Context extends LoadableContext> extends EventEmitter 
         this.options = { ...NativeWindow.defaults, ...options };
 
         this.glfw = glfw;
-        this.context = <Context>this.context;
+        this.context = <Context>this.options.context;
 
         if(!this.context){
             throw new TypeError('NativeWindow: no context given.');
@@ -110,7 +113,8 @@ export class NativeWindow<Context extends LoadableContext> extends EventEmitter 
         this._width = this.options.width;
         this._height = this.options.height;
         this._title = this.options.title;
-        this.handle = this.glfw.createWindow(this.width, this.height, this.title);
+
+        this.handle = this.createWindow();
 
         if(!this.handle){
             throw new Error('NativeWindow: unable to initialize Window');
@@ -144,8 +148,10 @@ export class NativeWindow<Context extends LoadableContext> extends EventEmitter 
         // context hints
         this.glfw.windowHint(this.glfw.CLIENT_API, LoadableContextApi[this.context.bindingsApi]);
 
-        this.glfw.windowHint(this.glfw.CONTEXT_VERSION_MAJOR, major);
-        this.glfw.windowHint(this.glfw.CONTEXT_VERSION_MINOR, minor);
+
+        //this.glfw.windowHint(this.glfw.CONTEXT_VERSION_MAJOR, major);
+        //this.glfw.windowHint(this.glfw.CONTEXT_VERSION_MINOR, minor);
+
         this.glfw.windowHint(this.glfw.SAMPLES, this.options.msaa);
         this.glfw.windowHint(this.glfw.DOUBLEBUFFER, +this.options.isDoubleBuffered);
 
@@ -159,6 +165,27 @@ export class NativeWindow<Context extends LoadableContext> extends EventEmitter 
         this.glfw.windowHint(this.glfw.MAXIMIZED, +this.options.isMaximized);
 
         this.emit('setWindowHints');
+    }
+
+    createWindow(): number {
+        const primaryMonitor = this.glfw.getPrimaryMonitor();
+
+        if(this.options.windowMode === WindowMode.fullscreen){
+            return this.glfw.createWindow(this.width, this.height, this.title, primaryMonitor);
+        }
+
+        if(this.options.windowMode === WindowMode.windowedFullscreen){
+            const currentVideoMode = this.glfw.getVideoMode(primaryMonitor);
+
+            this.glfw.windowHint(this.glfw.RED_BITS, currentVideoMode.redBits);
+            this.glfw.windowHint(this.glfw.GREEN_BITS, currentVideoMode.greenBits);
+            this.glfw.windowHint(this.glfw.BLUE_BITS, currentVideoMode.blueBits);
+            this.glfw.windowHint(this.glfw.REFRESH_RATE, currentVideoMode.refreshRate);
+
+            return this.glfw.createWindow(currentVideoMode.width, currentVideoMode.height, this.title, primaryMonitor);
+        }
+
+        return this.glfw.createWindow(this.width, this.height, this.title);
     }
 
     onError(code, message){
@@ -276,6 +303,9 @@ export class NativeWindow<Context extends LoadableContext> extends EventEmitter 
     }
     setCursor(_cursor: GLFWCursor): void {
         return this.glfw.setCursor(this.handle, _cursor);
+    }
+    getCursorPos(): GLFWPosition|null {
+        return this.isOpen ? this.glfw.getCursorPos(this.handle) : null;
     }
     setCursorPos(xpos: number, ypos: number): void {
         return this.glfw.setCursorPos(this.handle, xpos, ypos);
